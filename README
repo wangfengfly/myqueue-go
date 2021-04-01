@@ -1,0 +1,42 @@
+#### 自定义结构体说明:  
+```
+type MyQueue struct {
+	data []interface{}
+	mutex sync.Mutex
+	processing map[interface{}]bool
+	processingmutex sync.Mutex
+	exists map[interface{}]bool
+	isshutdown bool
+	isshuttingdown bool
+}
+```
+data用于保存队列数据。   
+mutex用作data互斥锁。    
+processing是正在处理的item，当消费者调用Done()时，会将item从processing中删除 。  
+processingmutex是processing字典的互斥锁。  
+exists用于标识item被处理之前是否存在，保证item被添加之前，只能处理一次。  
+isshutdown标识队列是否已经关闭，此时队列中无item.   
+isshutingdown标识队列是否正在关闭，当消费者调用ShutDown()时设置。  
+
+#### shutdown检测 
+启用了一个协程用于队列是否可以正式关闭的检测。  
+```
+func (q *MyQueue) ShutDown() {
+	q.isshuttingdown = true
+	go q.execShutDown()
+}
+
+func (q *MyQueue) execShutDown() {
+	ticker := time.NewTicker(time.Second)
+	for {
+		select {
+		case <-ticker.C:
+			if q.Len()==0 {
+				q.isshutdown = true
+				return
+			}
+		}
+	}
+}
+
+```
