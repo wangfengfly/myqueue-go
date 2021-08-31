@@ -6,13 +6,13 @@ import (
 )
 
 type MyQueue struct {
-	data []interface{}
-	mutex sync.Mutex
-	processing map[interface{}]bool
+	data            []interface{}
+	mutex           sync.Mutex
+	processing      map[interface{}]bool
 	processingmutex sync.Mutex
-	exists map[interface{}]bool
-	isshutdown bool
-	isshuttingdown bool
+	exists          map[interface{}]bool
+	isshutdown      bool
+	isshuttingdown  bool
 }
 
 func NewMyQueue() *MyQueue {
@@ -22,32 +22,32 @@ func NewMyQueue() *MyQueue {
 	return &myqueue
 }
 
-func (q *MyQueue) Add(item interface{}) {
+func (q *MyQueue) Add(item interface{}) bool {
 	if q.isshuttingdown {
-		return
+		return false
 	}
 
 	q.mutex.Lock()
 	defer q.mutex.Unlock()
 	//item在处理之前只能被添加一次
-	if _,ok:=q.exists[&item]; ok {
-		return
+	if _, ok := q.exists[item]; ok {
+		return false
 	}
 
-	q.exists[&item] = true
+	q.exists[item] = true
 	q.data = append(q.data, item)
 
-	return
+	return true
 }
 
 func (q *MyQueue) Get() (item interface{}, shutdown bool) {
-	if q.Len()==0 {
-		return nil,q.isshutdown
+	if q.Len() == 0 {
+		return nil, q.isshutdown
 	}
 
 	q.mutex.Lock()
 	q.processingmutex.Lock()
-	defer  q.mutex.Unlock()
+	defer q.mutex.Unlock()
 	defer q.processingmutex.Unlock()
 
 	item = q.data[0]
@@ -55,12 +55,12 @@ func (q *MyQueue) Get() (item interface{}, shutdown bool) {
 	q.processing[&item] = true
 	delete(q.exists, &item)
 
-	return item,q.isshutdown
+	return item, q.isshutdown
 }
 
 func (q *MyQueue) Len() int {
 	q.mutex.Lock()
-	defer  q.mutex.Unlock()
+	defer q.mutex.Unlock()
 	return len(q.data)
 }
 
@@ -75,7 +75,7 @@ func (q *MyQueue) execShutDown() {
 	for {
 		select {
 		case <-ticker.C:
-			if q.Len()==0 {
+			if q.Len() == 0 {
 				q.isshutdown = true
 				return
 			}
@@ -91,5 +91,3 @@ func (q *MyQueue) ShutDown() {
 func (q *MyQueue) ShuttingDown() bool {
 	return q.isshuttingdown
 }
-
-
