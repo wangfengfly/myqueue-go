@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"sync"
 	"testing"
@@ -23,48 +24,55 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func TestAdd(t *testing.T) {
-
-	var wg sync.WaitGroup
-	wg.Add(2)
-
-	go func() {
-		myqueue.Add(1)
-		wg.Done()
-	}()
-	go func() {
-		myqueue.Add(2)
-		wg.Done()
-	}()
-
-	wg.Wait()
-	if myqueue.Len()!=2 {
-		t.Errorf("myqueue Len is %d, but %d is expected.", myqueue.Len(), 2)
-	}
+type Student struct {
+	Name string
 }
 
+func worker(wg *sync.WaitGroup, item *Student) {
+	defer wg.Done()
+
+	ret := myqueue.Add(item)
+	fmt.Println(fmt.Sprintf("add to myqueue result: %v", ret))
+
+}
+
+func TestAdd(t *testing.T) {
+	student := Student{"Tom"}
+
+	var wg sync.WaitGroup
+	wg.Add(3)
+	for i := 0; i < 3; i++ {
+		go worker(&wg, &student)
+	}
+
+	wg.Wait()
+
+	if myqueue.Len() != 1 {
+		t.Errorf("the myqueue length shoud be 1.")
+	}
+}
 
 func TestGet(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(2)
 
-	var item1 int
-	var item2 int
+	var item1 *Student
+	var item2 *Student
 	go func() {
-		v,_ := myqueue.Get()
-		item1 = v.(int)
+		v, _ := myqueue.Get()
+		item1, _ = v.(*Student)
 		wg.Done()
 	}()
 
 	go func() {
-		v,_ := myqueue.Get()
-		item2 = v.(int)
+		v, _ := myqueue.Get()
+		item2, _ = v.(*Student)
 		wg.Done()
 	}()
 
 	wg.Wait()
 
-	if item1==item2 {
+	if item1 == item2 {
 		t.Errorf("read duplicated items from myqueue")
 	}
 }
